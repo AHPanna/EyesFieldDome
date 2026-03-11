@@ -23,11 +23,22 @@ class AlertUpdate(BaseModel):
     phone_number: str | None = None
 
 
+class PrefectureCreate(BaseModel):
+    name: str
+    department: str
+    city: str
+    url: str
+    scraper_type: str = "rdv_nationale"
+
+
 class PrefectureOut(BaseModel):
     id: int
     name: str
     department: str
     city: str
+    url: str
+    scraper_type: str
+    is_active: bool
 
     model_config = {"from_attributes": True}
 
@@ -44,5 +55,19 @@ class AlertOut(BaseModel):
     notif_sms: bool
     phone_number: str | None
     created_at: datetime
+
+    model_config = {"from_attributes": True}
+
+
+class UserBasicInfo(BaseModel):
+    id: int
+    full_name: str
+    email: str
+
+    model_config = {"from_attributes": True}
+
+
+class AlertAdminOut(AlertOut):
+    user: UserBasicInfo
 
     model_config = {"from_attributes": True}

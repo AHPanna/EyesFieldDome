@@ -26,3 +26,8 @@ class User(Base):
 
     alerts: Mapped[list["Alert"]] = relationship("Alert", back_populates="user", cascade="all, delete-orphan")
     notifications: Mapped[list["Notification"]] = relationship("Notification", back_populates="user", cascade="all, delete-orphan")
+
+    @property
+    def alerts_count(self) -> int:
+        return len(self.alerts)
+

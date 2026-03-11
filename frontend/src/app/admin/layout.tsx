@@ -1,5 +1,5 @@
 "use client";
-import { useEffect } from "react";
+import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { useAuthStore } from "@/store/authStore";
 import { Sidebar } from "@/components/layout/Sidebar";
@@ -9,12 +9,18 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
     const router = useRouter();
     const { user, isAdmin } = useAuthStore();
 
-    useEffect(() => {
-        if (!user) { router.push("/login"); return; }
-        if (!isAdmin()) router.push("/dashboard");
-    }, [user, isAdmin, router]);
+    const [mounted, setMounted] = useState(false);
 
-    if (!user || !isAdmin()) return null;
+    useEffect(() => {
+        setMounted(true);
+    }, []);
+
+    useEffect(() => {
+        if (mounted && !user) { router.push("/login"); return; }
+        if (mounted && user && !isAdmin()) router.push("/dashboard");
+    }, [user, isAdmin, router, mounted]);
+
+    if (!mounted || !user || !isAdmin()) return null;
 
     return (
         <div className="flex flex-col lg:flex-row min-h-screen bg-background">

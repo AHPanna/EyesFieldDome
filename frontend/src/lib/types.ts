@@ -7,6 +7,7 @@ export interface User {
     role: UserRole;
     is_active: boolean;
     credits: number;
+    alerts_count?: number;
     profile_image: string | null;
     created_at: string;
 }

@@ -27,6 +27,7 @@ class UserOut(BaseModel):
     role: UserRole
     is_active: bool
     credits: int
+    alerts_count: int = 0
     created_at: datetime
 
     model_config = {"from_attributes": True}

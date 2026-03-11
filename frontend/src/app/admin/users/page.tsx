@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { toast } from "sonner";
-import { Shield, ShieldOff, UserCheck, UserX, Coins, Ticket, Trash2 } from "lucide-react";
+import { Shield, ShieldOff, UserCheck, UserX, Coins, Ticket, Trash2, Bell } from "lucide-react";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -10,7 +10,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from "@/components/ui/dialog";
 
 import api from "@/lib/api";
-import { User } from "@/lib/types";
+import { User, Alert, PROCEDURE_LABELS } from "@/lib/types";
 import { format } from "date-fns";
 import { fr } from "date-fns/locale";
 
@@ -18,9 +18,12 @@ export default function AdminUsersPage() {
     const [users, setUsers] = useState<User[]>([]);
     const [loading, setLoading] = useState(true);
     const [isUsagesOpen, setIsUsagesOpen] = useState(false);
+    const [isAlertsOpen, setIsAlertsOpen] = useState(false);
     const [selectedUser, setSelectedUser] = useState<User | null>(null);
     const [userUsages, setUserUsages] = useState<any[]>([]);
+    const [userAlerts, setUserAlerts] = useState<Alert[]>([]);
     const [usagesLoading, setUsagesLoading] = useState(false);
+    const [alertsLoading, setAlertsLoading] = useState(false);
 
 
     const fetchUsers = () => api.get<User[]>("/admin/users").then((r) => { setUsers(r.data); setLoading(false); });
@@ -66,6 +69,20 @@ export default function AdminUsersPage() {
         }
     };
 
+    const handleViewUserAlerts = async (user: User) => {
+        setSelectedUser(user);
+        setIsAlertsOpen(true);
+        setAlertsLoading(true);
+        try {
+            const res = await api.get(`/admin/users/${user.id}/alerts`);
+            setUserAlerts(res.data);
+        } catch (err) {
+            toast.error("Erreur lors du chargement des alertes");
+        } finally {
+            setAlertsLoading(false);
+        }
+    };
+
 
     return (
         <div className="space-y-6 animate-fade-in-up">
@@ -88,6 +105,7 @@ export default function AdminUsersPage() {
                                     <TableHead>Rôle</TableHead>
                                     <TableHead>Statut</TableHead>
                                     <TableHead>Crédits</TableHead>
+                                    <TableHead>Alertes</TableHead>
                                     <TableHead>Inscrit le</TableHead>
                                     <TableHead className="text-right">Actions</TableHead>
                                 </TableRow>
@@ -111,6 +129,18 @@ export default function AdminUsersPage() {
                                             <Badge variant="outline" className="border-primary/20 bg-primary/5 text-primary">
                                                 {user.credits}
                                             </Badge>
+                                        </TableCell>
+                                        <TableCell>
+                                            <div className="flex items-center gap-1">
+                                                <Badge variant="outline" className="text-sm font-medium">
+                                                    {user.alerts_count || 0}
+                                                </Badge>
+                                                {(user.alerts_count || 0) > 0 && (
+                                                    <Button variant="ghost" size="sm" className="h-6 w-6 p-0 hover:bg-muted" onClick={() => handleViewUserAlerts(user)} title="Voir les alertes">
+                                                        <Bell className="w-3 h-3 text-muted-foreground" />
+                                                    </Button>
+                                                )}
+                                            </div>
                                         </TableCell>
                                         <TableCell className="text-muted-foreground text-sm">
                                             {format(new Date(user.created_at), "dd MMM yyyy", { locale: fr })}
@@ -191,6 +221,73 @@ export default function AdminUsersPage() {
                     </div>
                     <DialogFooter>
                         <Button variant="outline" onClick={() => setIsUsagesOpen(false)}>Fermer</Button>
+                    </DialogFooter>
+                </DialogContent>
+            </Dialog>
+
+            {/* View User Alerts Dialog */}
+            <Dialog open={isAlertsOpen} onOpenChange={setIsAlertsOpen}>
+                <DialogContent className="max-w-3xl">
+                    <DialogHeader>
+                        <DialogTitle>Alertes de {selectedUser?.full_name}</DialogTitle>
+                        <DialogDescription>
+                            Liste de toutes les demandes d'alertes configurées par cet utilisateur.
+                        </DialogDescription>
+                    </DialogHeader>
+                    <div className="py-4 max-h-[400px] overflow-y-auto">
+                        {alertsLoading ? (
+                            <div className="flex justify-center py-10">
+                                <span className="text-muted-foreground">Chargement...</span>
+                            </div>
+                        ) : userAlerts.length === 0 ? (
+                            <div className="text-center py-10 text-muted-foreground border-2 border-dashed rounded-xl">
+                                <p>Aucune alerte demandée.</p>
+                            </div>
+                        ) : (
+                            <Table>
+                                <TableHeader>
+                                    <TableRow>
+                                        <TableHead>Démarche</TableHead>
+                                        <TableHead>Préfecture</TableHead>
+                                        <TableHead>Période</TableHead>
+                                        <TableHead>Statut</TableHead>
+                                        <TableHead className="text-right">Notifs</TableHead>
+                                    </TableRow>
+                                </TableHeader>
+                                <TableBody>
+                                    {userAlerts.map((alert) => (
+                                        <TableRow key={alert.id}>
+                                            <TableCell>
+                                                <Badge variant="outline" className="text-xs">{PROCEDURE_LABELS[alert.procedure_type]}</Badge>
+                                            </TableCell>
+                                            <TableCell>
+                                                <div className="text-sm">
+                                                    <p className="font-medium">{alert.prefecture.name}</p>
+                                                    <p className="text-xs text-muted-foreground">{alert.prefecture.department} - {alert.prefecture.city}</p>
+                                                </div>
+                                            </TableCell>
+                                            <TableCell className="text-xs text-muted-foreground text-nowrap">
+                                                {format(new Date(alert.date_from), "dd/MM/yy")} <br /> au {format(new Date(alert.date_to), "dd/MM/yy")}
+                                            </TableCell>
+                                            <TableCell>
+                                                <Badge className={alert.is_active ? "bg-green-500/20 text-green-400 border-green-500/30 text-[10px]" : "bg-muted text-[10px]"}>
+                                                    {alert.is_active ? "Active" : "Inactive"}
+                                                </Badge>
+                                            </TableCell>
+                                            <TableCell className="text-right">
+                                                <div className="flex flex-col gap-1 items-end">
+                                                    {alert.notif_email && <Badge variant="outline" className="text-[10px] py-0">Email</Badge>}
+                                                    {alert.notif_sms && <Badge variant="outline" className="text-[10px] py-0">SMS</Badge>}
+                                                </div>
+                                            </TableCell>
+                                        </TableRow>
+                                    ))}
+                                </TableBody>
+                            </Table>
+                        )}
+                    </div>
+                    <DialogFooter>
+                        <Button variant="outline" onClick={() => setIsAlertsOpen(false)}>Fermer</Button>
                     </DialogFooter>
                 </DialogContent>
             </Dialog>

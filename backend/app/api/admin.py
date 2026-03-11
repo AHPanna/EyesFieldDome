@@ -8,7 +8,7 @@ from app.models.alert import Alert
 from app.models.slot import Slot
 from app.models.prefecture import Prefecture
 from app.schemas.user import UserOut, UserUpdate
-from app.schemas.alert import AlertOut
+from app.schemas.alert import AlertOut, PrefectureCreate, AlertAdminOut
 
 router = APIRouter(prefix="/admin", tags=["Administration"])
 
@@ -58,7 +58,18 @@ def update_user(
     return user
 
 
-@router.get("/alerts", response_model=list[AlertOut])
+@router.get("/users/{user_id}/alerts", response_model=list[AlertOut])
+def list_user_alerts(
+    user_id: int,
+    db: Session = Depends(get_db),
+    _: User = Depends(require_admin),
+    skip: int = 0,
+    limit: int = 50,
+):
+    return db.query(Alert).filter(Alert.user_id == user_id).order_by(Alert.created_at.desc()).offset(skip).limit(limit).all()
+
+
+@router.get("/alerts", response_model=list[AlertAdminOut])
 def list_all_alerts(
     skip: int = 0,
     limit: int = 50,
@@ -75,16 +86,26 @@ def list_prefectures(db: Session = Depends(get_db), _: User = Depends(require_ad
 
 @router.post("/prefectures", status_code=status.HTTP_201_CREATED)
 def create_prefecture(
-    name: str,
-    department: str,
-    city: str,
-    url: str,
-    scraper_type: str = "rdv_nationale",
+    payload: PrefectureCreate,
     db: Session = Depends(get_db),
     _: User = Depends(require_admin),
 ):
-    pref = Prefecture(name=name, department=department, city=city, url=url, scraper_type=scraper_type)
+    pref = Prefecture(**payload.model_dump())
     db.add(pref)
     db.commit()
     db.refresh(pref)
     return pref
+
+
+@router.delete("/prefectures/{prefecture_id}", status_code=status.HTTP_204_NO_CONTENT)
+def delete_prefecture(
+    prefecture_id: int,
+    db: Session = Depends(get_db),
+    _: User = Depends(require_admin),
+):
+    pref = db.query(Prefecture).filter(Prefecture.id == prefecture_id).first()
+    if not pref:
+        raise HTTPException(status_code=404, detail="Préfecture introuvable")
+    db.delete(pref)
+    db.commit()
+    return None

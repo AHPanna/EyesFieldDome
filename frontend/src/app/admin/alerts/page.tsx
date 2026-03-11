@@ -10,12 +10,20 @@ import { Alert, PROCEDURE_LABELS } from "@/lib/types";
 import { format } from "date-fns";
 import { fr } from "date-fns/locale";
 
+export interface AlertAdmin extends Alert {
+    user: {
+        id: number;
+        full_name: string;
+        email: string;
+    }
+}
+
 export default function AdminAlertsPage() {
-    const [alerts, setAlerts] = useState<Alert[]>([]);
+    const [alerts, setAlerts] = useState<AlertAdmin[]>([]);
     const [loading, setLoading] = useState(true);
 
     useEffect(() => {
-        api.get<Alert[]>("/admin/alerts").then((r) => { setAlerts(r.data); setLoading(false); });
+        api.get<AlertAdmin[]>("/admin/alerts").then((r) => { setAlerts(r.data); setLoading(false); });
     }, []);
 
     return (
@@ -35,6 +43,7 @@ export default function AdminAlertsPage() {
                             <TableHeader>
                                 <TableRow className="border-border">
                                     <TableHead>ID</TableHead>
+                                    <TableHead>Utilisateur</TableHead>
                                     <TableHead>Préfecture</TableHead>
                                     <TableHead>Démarche</TableHead>
                                     <TableHead>Période</TableHead>
@@ -47,6 +56,12 @@ export default function AdminAlertsPage() {
                                 {alerts.map((alert) => (
                                     <TableRow key={alert.id} className="border-border hover:bg-muted/20">
                                         <TableCell className="text-muted-foreground text-sm">#{alert.id}</TableCell>
+                                        <TableCell>
+                                            <div>
+                                                <p className="font-medium text-sm">{alert.user.full_name}</p>
+                                                <p className="text-xs text-muted-foreground">{alert.user.email}</p>
+                                            </div>
+                                        </TableCell>
                                         <TableCell>
                                             <div>
                                                 <p className="font-medium text-sm">{alert.prefecture.name}</p>
