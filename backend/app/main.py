@@ -1,20 +1,48 @@
+import os
+import asyncio
+import logging
+from logging.handlers import RotatingFileHandler
 from contextlib import asynccontextmanager
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from app.config import settings
+
+# Ensure logs directory exists
+os.makedirs("logs", exist_ok=True)
+
+# Setup logging
+logging.basicConfig(
+    level=logging.INFO,
+    format="%(asctime)s [%(levelname)s] %(name)s: %(message)s",
+    handlers=[
+        logging.StreamHandler(),
+        RotatingFileHandler("logs/backend.log", maxBytes=10*1024*1024, backupCount=5)
+    ]
+)
+
+logger = logging.getLogger("backend")
 from app.database import engine, SessionLocal
 from app.database import Base
-from app.api import auth, users, alerts, slots, admin, prefectures
+from app.api import auth, users, alerts, slots, admin, prefectures, credits, settings as settings_api, support, actuator
 from app.core.security import get_password_hash
 from app.models.user import User, UserRole
+from prometheus_fastapi_instrumentator import Instrumentator
 
 # Import all models so that Base knows about them for table creation
-from app.models import user, prefecture, alert, slot, notification  # noqa: F401
+from app.models import user, prefecture, alert, slot, notification, transaction, support as support_models, settings as settings_models, credits as credits_models  # noqa: F401
+from sqlalchemy import text
 
 
 def seed_database():
     """Create tables and seed initial data on startup."""
     Base.metadata.create_all(bind=engine)
+    
+    # Manual schema update for Phase 2 (since Base.metadata.create_all doesn't update columns)
+    with engine.connect() as conn:
+        conn.execute(text("ALTER TABLE users ADD COLUMN IF NOT EXISTS credits INTEGER DEFAULT 5 NOT NULL"))
+        conn.execute(text("ALTER TABLE users ADD COLUMN IF NOT EXISTS profile_image VARCHAR(255)"))
+        conn.commit()
+
     db = SessionLocal()
     try:
         # Create admin user if not exists
@@ -27,6 +55,16 @@ def seed_database():
                 role=UserRole.admin,
             )
             db.add(admin_user)
+
+        # Create default system settings if not exists
+        from app.models.settings import SystemSettings
+        if db.query(SystemSettings).count() == 0:
+            default_settings = SystemSettings(
+                scraper_enabled=True,
+                scraping_interval_minutes=10,
+                proxy_list=[]
+            )
+            db.add(default_settings)
 
         # Seed some prefectures if none exist
         from app.models.prefecture import Prefecture
@@ -81,6 +119,13 @@ app.include_router(alerts.router)
 app.include_router(slots.router)
 app.include_router(admin.router)
 app.include_router(prefectures.router)
+app.include_router(credits.router)
+app.include_router(settings_api.router)
+app.include_router(support.router)
+app.include_router(actuator.router)
+
+# Prometheus metrics
+Instrumentator().instrument(app).expose(app)
 
 
 @app.get("/health", tags=["Health"])

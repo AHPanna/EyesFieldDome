@@ -16,12 +16,23 @@ def create_alert(
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user),
 ):
-    prefecture = db.query(Prefecture).filter(Prefecture.id == payload.prefecture_id).first()
-    if not prefecture:
+    """Crée une nouvelle alerte (coûte 1 crédit)."""
+    if current_user.credits < 1:
+        raise HTTPException(
+            status_code=status.HTTP_402_PAYMENT_REQUIRED,
+            detail="Crédits insuffisants. Veuillez en acheter pour configurer de nouvelles alertes."
+        )
+
+    prefacture = db.query(Prefecture).filter(Prefecture.id == payload.prefecture_id).first()
+    if not prefacture:
         raise HTTPException(status_code=404, detail="Préfecture introuvable")
+    
     if payload.date_from > payload.date_to:
         raise HTTPException(status_code=400, detail="La date de début doit être avant la date de fin")
+    
     alert = Alert(user_id=current_user.id, **payload.model_dump())
+    current_user.credits -= 1
+    
     db.add(alert)
     db.commit()
     db.refresh(alert)

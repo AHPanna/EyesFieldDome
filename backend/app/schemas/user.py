@@ -10,17 +10,23 @@ class UserCreate(BaseModel):
 
 
 class UserUpdate(BaseModel):
+    email: EmailStr | None = None
+    password: str | None = None
     full_name: str | None = None
+    profile_image: str | None = None
     is_active: bool | None = None
     role: UserRole | None = None
+    credits: int | None = None
 
 
 class UserOut(BaseModel):
     id: int
     email: str
     full_name: str
+    profile_image: str | None = None
     role: UserRole
     is_active: bool
+    credits: int
     created_at: datetime
 
     model_config = {"from_attributes": True}

@@ -39,6 +39,7 @@ services:
         condition: service_started
     volumes:
       - ./backend:/app
+      - logs_data:/app/logs
     command: uvicorn app.main:app --host 0.0.0.0 --port 8000 --reload
 
   frontend:
@@ -56,5 +57,22 @@ services:
       - ./frontend/src:/app/src
       - ./frontend/public:/app/public
 
+  scraper:
+    build:
+      context: ./scraper
+      dockerfile: Dockerfile
+    container_name: rdv_scraper
+    env_file: ./backend/.env
+    environment:
+      DATABASE_URL: postgresql://rdv:rdv@postgres:5432/rdv_prefecture
+    depends_on:
+      postgres:
+        condition: service_healthy
+    volumes:
+      - ./scraper:/app
+      - logs_data:/app/logs
+
 volumes:
   postgres_data:
+  logs_data:
+
